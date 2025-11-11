@@ -116,7 +116,7 @@ struct MovieDetailView: View {
                         .foregroundColor(.yellow)
                         .font(.caption)
                 }
-                Text(String(format: "%.1f", viewModel.movieDetail?.voteAverage ?? 0.0))
+                Text(ratingText)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -199,10 +199,16 @@ struct MovieDetailView: View {
         .padding(.bottom, 20)
     }
 
+    // MARK: - Helper Properties
+    private var ratingText: String {
+        let rating = viewModel.movieDetail?.voteAverage ?? 0.0
+        return String(format: "%.1f", rating)
+    }
+
     // MARK: - Helper Functions
     private func starIcon(for index: Int) -> String {
-        let rating = viewModel.movieDetail?.voteAverage ?? 0
-        let fullStars = Int(rating / 2)
+        let rating = viewModel.movieDetail?.voteAverage ?? 0.0
+        let fullStars = Int(rating / 2.0)
         let hasHalfStar = rating.truncatingRemainder(dividingBy: 2) >= 1
 
         if index < fullStars {
@@ -252,24 +258,18 @@ class MovieDetailViewModel: ObservableObject {
     func loadMovieDetails() {
         isLoadingDetails = true
 
-        // Create a dispatch group to handle parallel requests
-        let group = DispatchGroup()
-
-        // Fetch movie details (critical)
-        group.enter()
+        // Fetch movie details (critical) - Update UI immediately when done
         NetworkManager.shared.fetchMovieDetails(movieId: movieId) { [weak self] result in
-            defer { group.leave() }
-            if case .success(let details) = result {
-                DispatchQueue.main.async {
+            DispatchQueue.main.async {
+                self?.isLoadingDetails = false
+                if case .success(let details) = result {
                     self?.movieDetail = details
                 }
             }
         }
 
-        // Fetch reviews (non-critical)
-        group.enter()
+        // Fetch reviews (non-critical) - Load in background
         NetworkManager.shared.fetchMovieReviews(movieId: movieId) { [weak self] result in
-            defer { group.leave() }
             if case .success(let reviewResponse) = result {
                 DispatchQueue.main.async {
                     self?.reviews = reviewResponse.results
@@ -277,20 +277,13 @@ class MovieDetailViewModel: ObservableObject {
             }
         }
 
-        // Fetch similar movies (non-critical)
-        group.enter()
+        // Fetch similar movies (non-critical) - Load in background
         NetworkManager.shared.fetchSimilarMovies(movieId: movieId) { [weak self] result in
-            defer { group.leave() }
             if case .success(let similarResponse) = result {
                 DispatchQueue.main.async {
                     self?.similarMovies = similarResponse.results
                 }
             }
-        }
-
-        // Wait for critical data (movie details) to complete
-        group.notify(queue: .main) { [weak self] in
-            self?.isLoadingDetails = false
         }
     }
 
