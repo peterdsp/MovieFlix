@@ -41,17 +41,19 @@ struct MovieDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                if viewModel.movieDetail?.homepage != nil {
-                    Button(action: shareMovie) {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                }
-            }
-        }
+        .navigationBarItems(trailing: shareButton)
         .onAppear {
             viewModel.loadMovieDetails()
+        }
+    }
+
+    // MARK: - Share Button
+    @ViewBuilder
+    private var shareButton: some View {
+        if viewModel.movieDetail?.homepage != nil {
+            Button(action: shareMovie) {
+                Image(systemName: "square.and.arrow.up")
+            }
         }
     }
 
@@ -114,7 +116,7 @@ struct MovieDetailView: View {
                         .foregroundColor(.yellow)
                         .font(.caption)
                 }
-                Text(String(format: "%.1f", viewModel.movieDetail?.voteAverage ?? 0))
+                Text(String(format: "%.1f", viewModel.movieDetail?.voteAverage ?? 0.0))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
