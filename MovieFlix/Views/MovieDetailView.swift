@@ -20,7 +20,7 @@ struct MovieDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+            LazyVStack(alignment: .leading, spacing: 0, pinnedViews: []) {
                 // Backdrop Image
                 backdropSection
 
@@ -43,7 +43,9 @@ struct MovieDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarItems(trailing: shareButton)
         .onAppear {
-            viewModel.loadMovieDetails()
+            if viewModel.movieDetail == nil {
+                viewModel.loadMovieDetails()
+            }
         }
     }
 
@@ -150,13 +152,15 @@ struct MovieDetailView: View {
                     .padding(.horizontal)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
+                    LazyHStack(spacing: 16) {
                         ForEach(cast.prefix(10)) { member in
                             CastMemberView(cast: member)
+                                .id(member.id)
                         }
                     }
                     .padding(.horizontal)
                 }
+                .frame(height: 140)
                 .skeleton(isLoading: viewModel.isLoadingDetails)
             }
         }
@@ -187,13 +191,15 @@ struct MovieDetailView: View {
                     .padding(.horizontal)
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
+                    LazyHStack(spacing: 12) {
                         ForEach(viewModel.similarMovies.prefix(10)) { movie in
                             SimilarMovieCardView(movie: movie)
+                                .id(movie.id)
                         }
                     }
                     .padding(.horizontal)
                 }
+                .frame(height: 200)
             }
         }
         .padding(.bottom, 20)
