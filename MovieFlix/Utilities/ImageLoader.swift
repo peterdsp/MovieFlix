@@ -11,7 +11,7 @@ import Combine
 class ImageLoader: ObservableObject {
     @Published var image: UIImage?
     private var cancellable: AnyCancellable?
-    private static let cache = NSCache<NSURL, UIImage>()
+    static let cache = NSCache<NSURL, UIImage>()
 
     func load(url: URL?) {
         guard let url = url else { return }
