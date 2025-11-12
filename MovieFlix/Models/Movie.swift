@@ -3,6 +3,7 @@
 //  MovieFlix
 //
 //  Created on 11/11/2025.
+//  Copyrights 2025 @Petros Dhespollari
 //
 
 import Foundation
@@ -41,21 +42,23 @@ struct Movie: Codable, Identifiable {
 
     var backdropURL: URL? {
         guard let path = backdropPath else { return nil }
-        return URL(string: "\(Config.imageBaseURL)/\(Config.backdropSize)\(path)")
+        return URL(string: "\(Config.imageBaseURL)/\(Config.listBackdropSize)\(path)")
     }
 
     var posterURL: URL? {
         guard let path = posterPath else { return nil }
-        return URL(string: "\(Config.imageBaseURL)/\(Config.posterSize)\(path)")
+        return URL(string: "\(Config.imageBaseURL)/\(Config.listPosterSize)\(path)")
     }
 
     var formattedReleaseDate: String {
-        guard let dateString = releaseDate else { return "N/A" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: dateString) else { return dateString }
-        formatter.dateFormat = "d MMM yyyy"
-        return formatter.string(from: date)
+        guard
+            let dateString = releaseDate,
+            let date = DateFormatters.apiFormatter.date(from: dateString)
+        else {
+            return releaseDate ?? "N/A"
+        }
+
+        return DateFormatters.displayFormatter.string(from: date)
     }
 
     var rating: Double {

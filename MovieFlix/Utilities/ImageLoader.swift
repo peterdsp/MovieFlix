@@ -3,6 +3,7 @@
 //  MovieFlix
 //
 //  Created on 11/11/2025.
+//  Copyrights 2025 @Petros Dhespollari
 //
 
 import UIKit
@@ -23,7 +24,8 @@ class ImageLoader: ObservableObject {
         }
 
         cancellable = URLSession.shared.dataTaskPublisher(for: url)
-            .map { UIImage(data: $0.data) }
+            .subscribe(on: DispatchQueue.global(qos: .userInitiated))
+            .map { UIImage(data: $0.data)?.decoded() }
             .replaceError(with: nil)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] downloadedImage in
@@ -53,14 +55,17 @@ extension UIImageView {
         }
 
         URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let data = data,
-                  let image = UIImage(data: data),
-                  error == nil else { return }
+            guard let data = data, error == nil else { return }
 
-            ImageLoader.cache.setObject(image, forKey: url as NSURL)
+            // Decode image on background thread
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let image = UIImage(data: data)?.decoded() else { return }
 
-            DispatchQueue.main.async {
-                self?.image = image
+                ImageLoader.cache.setObject(image, forKey: url as NSURL)
+
+                DispatchQueue.main.async {
+                    self?.image = image
+                }
             }
         }.resume()
     }

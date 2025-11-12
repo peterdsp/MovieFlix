@@ -3,10 +3,12 @@
 //  MovieFlix
 //
 //  Created on 11/11/2025.
+//  Copyrights 2025 @Petros Dhespollari
 //
 
 import UIKit
 import SwiftUI
+import QuartzCore
 
 class HomeViewController: UIViewController {
 
@@ -17,6 +19,7 @@ class HomeViewController: UIViewController {
     private var isSearching = false
     private var searchQuery = ""
     private var searchWorkItem: DispatchWorkItem?
+    private var showSkeletonCells = true
 
     // MARK: - UI Components
     private lazy var tableView: UITableView = {
@@ -85,8 +88,12 @@ class HomeViewController: UIViewController {
 
     // MARK: - Load Popular Movies
     private func loadPopularMovies() {
-        guard !isLoading else { return }
+        guard !isLoading else {
+            AppLogger.general.debug("Skipped popular load, another request is in flight (page \(self.currentPage))")
+            return
+        }
         isLoading = true
+        AppLogger.general.info("[HOME] Loading popular movies page \(self.currentPage)")
 
         if movies.isEmpty {
             loadingIndicator.startAnimating()
@@ -100,14 +107,18 @@ class HomeViewController: UIViewController {
 
             switch result {
             case .success(let response):
+                AppLogger.general.info("[HOME] Received \(response.results.count) movies for page \(self.currentPage)")
+                self.showSkeletonCells = false
                 if self.currentPage == 1 {
                     self.movies = response.results
                 } else {
                     self.movies.append(contentsOf: response.results)
                 }
-                self.tableView.reloadData()
+                self.reloadTableView()
 
             case .failure(let error):
+                AppLogger.general.error("[HOME] Failed to load popular movies: \(error.localizedDescription, privacy: .public)")
+                self.showSkeletonCells = false
                 self.showError(error)
             }
         }
@@ -115,8 +126,14 @@ class HomeViewController: UIViewController {
 
     // MARK: - Search Movies
     private func searchMovies() {
-        guard !isLoading, !searchQuery.isEmpty else { return }
+        guard !isLoading else {
+            AppLogger.general.debug("Skipped search fetch, another request is in flight (page \(self.currentPage))")
+            return
+        }
+
+        guard !searchQuery.isEmpty else { return }
         isLoading = true
+        AppLogger.general.info("[HOME] Searching '\(self.searchQuery, privacy: .public)' page \(self.currentPage)")
 
         if movies.isEmpty {
             loadingIndicator.startAnimating()
@@ -129,14 +146,18 @@ class HomeViewController: UIViewController {
 
             switch result {
             case .success(let response):
+                AppLogger.general.info("[HOME] Search returned \(response.results.count) movies for page \(self.currentPage)")
+                self.showSkeletonCells = false
                 if self.currentPage == 1 {
                     self.movies = response.results
                 } else {
                     self.movies.append(contentsOf: response.results)
                 }
-                self.tableView.reloadData()
+                self.reloadTableView()
 
             case .failure(let error):
+                AppLogger.general.error("[HOME] Search failed: \(error.localizedDescription, privacy: .public)")
+                self.showSkeletonCells = false
                 self.showError(error)
             }
         }
@@ -144,7 +165,12 @@ class HomeViewController: UIViewController {
 
     // MARK: - Refresh Movies
     @objc private func refreshMovies() {
+        let mode = self.isSearching ? "search" : "popular"
+        AppLogger.general.info("[HOME] Refresh triggered. Current mode: \(mode)")
         currentPage = 1
+        showSkeletonCells = true
+        movies.removeAll()
+        tableView.reloadData()
         if isSearching {
             searchMovies()
         } else {
@@ -154,7 +180,9 @@ class HomeViewController: UIViewController {
 
     // MARK: - Load More Movies
     private func loadMoreMovies() {
+        guard !isLoading else { return }
         currentPage += 1
+        AppLogger.general.info("[HOME] Loading more movies. Next page: \(self.currentPage)")
         if isSearching {
             searchMovies()
         } else {
@@ -177,7 +205,7 @@ class HomeViewController: UIViewController {
 // MARK: - UITableViewDataSource
 extension HomeViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return movies.count
+        return showSkeletonCells && movies.isEmpty ? 5 : movies.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -185,10 +213,24 @@ extension HomeViewController: UITableViewDataSource {
             return UITableViewCell()
         }
 
-        let movie = movies[indexPath.row]
-        let isFavorite = FavoritesManager.shared.isFavorite(movieId: movie.id)
-        cell.configure(with: movie, isFavorite: isFavorite)
-        cell.delegate = self
+        if showSkeletonCells && movies.isEmpty {
+            // Show skeleton cell while loading
+            let placeholderMovie = Movie(
+                id: indexPath.row,
+                title: "Loading...",
+                backdropPath: nil,
+                posterPath: nil,
+                releaseDate: nil,
+                voteAverage: 0,
+                overview: nil
+            )
+            cell.configure(with: placeholderMovie, isFavorite: false, isLoading: true)
+        } else {
+            let movie = movies[indexPath.row]
+            let isFavorite = FavoritesManager.shared.isFavorite(movieId: movie.id)
+            cell.configure(with: movie, isFavorite: isFavorite, isLoading: false)
+            cell.delegate = self
+        }
 
         return cell
     }
@@ -219,16 +261,23 @@ extension HomeViewController: UISearchResultsUpdating {
         let workItem = DispatchWorkItem { [weak self] in
             guard let self = self else { return }
             let query = searchController.searchBar.text ?? ""
+            AppLogger.general.debug("Search query changed to '\(query, privacy: .public)'")
 
             if query.isEmpty {
                 self.isSearching = false
                 self.searchQuery = ""
                 self.currentPage = 1
+                self.showSkeletonCells = true
+                self.movies.removeAll()
+                self.tableView.reloadData()
                 self.loadPopularMovies()
             } else {
                 self.isSearching = true
                 self.searchQuery = query
                 self.currentPage = 1
+                self.showSkeletonCells = true
+                self.movies.removeAll()
+                self.tableView.reloadData()
                 self.searchMovies()
             }
         }
@@ -244,6 +293,9 @@ extension HomeViewController: UISearchBarDelegate {
         isSearching = false
         searchQuery = ""
         currentPage = 1
+        showSkeletonCells = true
+        movies.removeAll()
+        tableView.reloadData()
         loadPopularMovies()
     }
 }
@@ -258,5 +310,24 @@ extension HomeViewController: MovieCellDelegate {
             let indexPath = IndexPath(row: index, section: 0)
             tableView.reloadRows(at: [indexPath], with: .none)
         }
+    }
+}
+
+// MARK: - Performance helpers
+private extension HomeViewController {
+    func reloadTableView() {
+        #if DEBUG
+        let start = CACurrentMediaTime()
+        tableView.reloadData()
+        let duration = CACurrentMediaTime() - start
+        let formatted = String(format: "%.3f", duration)
+        if duration > 0.05 {
+            AppLogger.performance.error("[PERF] tableView.reloadData took \(formatted, privacy: .public)s for \(self.movies.count) rows")
+        } else {
+            AppLogger.performance.debug("[PERF] tableView.reloadData took \(formatted, privacy: .public)s for \(self.movies.count) rows")
+        }
+        #else
+        tableView.reloadData()
+        #endif
     }
 }

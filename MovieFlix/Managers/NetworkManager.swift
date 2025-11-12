@@ -3,6 +3,7 @@
 //  MovieFlix
 //
 //  Created on 11/11/2025.
+//  Copyrights 2025 @Petros Dhespollari
 //
 
 import Foundation
@@ -37,7 +38,13 @@ class NetworkManager {
 
     // MARK: - Fetch Movie Details
     func fetchMovieDetails(movieId: Int, completion: @escaping (Result<MovieDetailResponse, Error>) -> Void) {
-        let urlString = "\(Config.baseURL)/movie/\(movieId)?api_key=\(Config.apiKey)&append_to_response=credits"
+        let urlString = "\(Config.baseURL)/movie/\(movieId)?api_key=\(Config.apiKey)"
+        performRequest(urlString: urlString, completion: completion)
+    }
+
+    // MARK: - Fetch Movie Credits
+    func fetchMovieCredits(movieId: Int, completion: @escaping (Result<Credits, Error>) -> Void) {
+        let urlString = "\(Config.baseURL)/movie/\(movieId)/credits?api_key=\(Config.apiKey)"
         performRequest(urlString: urlString, completion: completion)
     }
 
@@ -60,8 +67,16 @@ class NetworkManager {
             return
         }
 
+        #if DEBUG
+        let startTime = Date()
+        AppLogger.network.info("[NETWORK] Request started: \(url.absoluteString, privacy: .public)")
+        #endif
+
         URLSession.shared.dataTask(with: url) { data, response, error in
             if let error = error {
+                #if DEBUG
+                AppLogger.network.error("[NETWORK] Request failed: \(url.absoluteString, privacy: .public) error: \(error.localizedDescription, privacy: .public)")
+                #endif
                 DispatchQueue.main.async {
                     completion(.failure(error))
                 }
@@ -69,6 +84,9 @@ class NetworkManager {
             }
 
             guard let httpResponse = response as? HTTPURLResponse else {
+                #if DEBUG
+                AppLogger.network.error("[NETWORK] Invalid response object for: \(url.absoluteString, privacy: .public)")
+                #endif
                 DispatchQueue.main.async {
                     completion(.failure(NetworkError.invalidResponse))
                 }
@@ -76,6 +94,9 @@ class NetworkManager {
             }
 
             guard (200...299).contains(httpResponse.statusCode) else {
+                #if DEBUG
+                AppLogger.network.error("[NETWORK] HTTP \(httpResponse.statusCode) for: \(url.absoluteString, privacy: .public)")
+                #endif
                 DispatchQueue.main.async {
                     completion(.failure(NetworkError.serverError("Status code: \(httpResponse.statusCode)")))
                 }
@@ -83,6 +104,9 @@ class NetworkManager {
             }
 
             guard let data = data else {
+                #if DEBUG
+                AppLogger.network.error("[NETWORK] Empty data for: \(url.absoluteString, privacy: .public)")
+                #endif
                 DispatchQueue.main.async {
                     completion(.failure(NetworkError.invalidResponse))
                 }
@@ -92,10 +116,17 @@ class NetworkManager {
             do {
                 let decoder = JSONDecoder()
                 let decodedData = try decoder.decode(T.self, from: data)
+                #if DEBUG
+                let duration = Date().timeIntervalSince(startTime)
+                AppLogger.network.info("[NETWORK] Request succeeded: \(url.absoluteString, privacy: .public) in \(duration, format: .fixed(precision: 2), privacy: .public)s")
+                #endif
                 DispatchQueue.main.async {
                     completion(.success(decodedData))
                 }
             } catch {
+                #if DEBUG
+                AppLogger.network.error("[NETWORK] Decoding error for: \(url.absoluteString, privacy: .public)")
+                #endif
                 DispatchQueue.main.async {
                     completion(.failure(NetworkError.decodingError))
                 }

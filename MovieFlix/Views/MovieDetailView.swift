@@ -3,15 +3,18 @@
 //  MovieFlix
 //
 //  Created on 11/11/2025.
+//  Copyrights 2025 @Petros Dhespollari
 //
 
 import SwiftUI
+import UIKit
 
 struct MovieDetailView: View {
     let movieId: Int
 
     @StateObject private var viewModel: MovieDetailViewModel
-    @Environment(\.presentationMode) var presentationMode
+    @State private var isShareSheetPresented = false
+    @State private var shareURL: URL?
 
     init(movieId: Int) {
         self.movieId = movieId
@@ -41,7 +44,16 @@ struct MovieDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarItems(trailing: shareButton)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                shareToolbarContent
+            }
+        }
+        .sheet(isPresented: $isShareSheetPresented, onDismiss: { shareURL = nil }) {
+            if let shareURL {
+                ShareSheet(activityItems: [shareURL])
+            }
+        }
         .onAppear {
             if viewModel.movieDetail == nil {
                 viewModel.loadMovieDetails()
@@ -51,11 +63,20 @@ struct MovieDetailView: View {
 
     // MARK: - Share Button
     @ViewBuilder
-    private var shareButton: some View {
-        if viewModel.movieDetail?.homepage != nil {
-            Button(action: shareMovie) {
+    private var shareToolbarContent: some View {
+        if let homepage = viewModel.movieDetail?.homepage,
+           let url = URL(string: homepage) {
+            Button {
+                shareURL = url
+                isShareSheetPresented = true
+                AppLogger.general.info("[DETAIL] Share tapped for movie ID \(self.movieId)")
+            } label: {
                 Image(systemName: "square.and.arrow.up")
+                    .imageScale(.medium)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("Share movie")
         }
     }
 
@@ -146,14 +167,14 @@ struct MovieDetailView: View {
     // MARK: - Cast Section
     private var castSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let cast = viewModel.movieDetail?.credits?.cast, !cast.isEmpty {
+            if !viewModel.cast.isEmpty {
                 Text("Cast")
                     .font(.headline)
                     .padding(.horizontal)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 16) {
-                        ForEach(cast.prefix(10)) { member in
+                        ForEach(viewModel.cast.prefix(10)) { member in
                             CastMemberView(cast: member)
                                 .id(member.id)
                         }
@@ -161,7 +182,6 @@ struct MovieDetailView: View {
                     .padding(.horizontal)
                 }
                 .frame(height: 140)
-                .skeleton(isLoading: viewModel.isLoadingDetails)
             }
         }
     }
@@ -230,20 +250,6 @@ struct MovieDetailView: View {
         viewModel.toggleFavorite()
     }
 
-    private func shareMovie() {
-        guard let homepage = viewModel.movieDetail?.homepage,
-              let url = URL(string: homepage) else { return }
-
-        let activityVC = UIActivityViewController(
-            activityItems: [url],
-            applicationActivities: nil
-        )
-
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(activityVC, animated: true)
-        }
-    }
 }
 
 // MARK: - View Model
@@ -251,6 +257,7 @@ class MovieDetailViewModel: ObservableObject {
     let movieId: Int
 
     @Published var movieDetail: MovieDetailResponse?
+    @Published var cast: [Cast] = []
     @Published var reviews: [Review] = []
     @Published var similarMovies: [Movie] = []
     @Published var isLoadingDetails = false
@@ -264,31 +271,60 @@ class MovieDetailViewModel: ObservableObject {
     func loadMovieDetails() {
         isLoadingDetails = true
 
-        // Fetch movie details (critical) - Update UI immediately when done
+        // 1. Fetch movie details (CRITICAL) - Must succeed for screen to work
         NetworkManager.shared.fetchMovieDetails(movieId: movieId) { [weak self] result in
             DispatchQueue.main.async {
                 self?.isLoadingDetails = false
-                if case .success(let details) = result {
+                switch result {
+                case .success(let details):
                     self?.movieDetail = details
+                    AppLogger.general.info("[DETAIL] Movie details loaded successfully")
+                case .failure(let error):
+                    AppLogger.general.error("[DETAIL] Failed to load movie details: \(error.localizedDescription, privacy: .public)")
+                    // Screen can still show with basic info
                 }
             }
         }
 
-        // Fetch reviews (non-critical) - Load in background
+        // 2. Fetch credits (NON-CRITICAL) - Separate API call
+        NetworkManager.shared.fetchMovieCredits(movieId: movieId) { [weak self] result in
+            switch result {
+            case .success(let credits):
+                DispatchQueue.main.async {
+                    self?.cast = credits.cast
+                    AppLogger.general.info("[DETAIL] Credits loaded: \(credits.cast.count) cast members")
+                }
+            case .failure(let error):
+                AppLogger.general.warning("[DETAIL] Failed to load credits (non-critical): \(error.localizedDescription, privacy: .public)")
+                // Screen continues to work without cast
+            }
+        }
+
+        // 3. Fetch reviews (NON-CRITICAL) - Separate API call
         NetworkManager.shared.fetchMovieReviews(movieId: movieId) { [weak self] result in
-            if case .success(let reviewResponse) = result {
+            switch result {
+            case .success(let reviewResponse):
                 DispatchQueue.main.async {
                     self?.reviews = reviewResponse.results
+                    AppLogger.general.info("[DETAIL] Reviews loaded: \(reviewResponse.results.count) reviews")
                 }
+            case .failure(let error):
+                AppLogger.general.warning("[DETAIL] Failed to load reviews (non-critical): \(error.localizedDescription, privacy: .public)")
+                // Screen continues to work without reviews
             }
         }
 
-        // Fetch similar movies (non-critical) - Load in background
+        // 4. Fetch similar movies (NON-CRITICAL) - Separate API call
         NetworkManager.shared.fetchSimilarMovies(movieId: movieId) { [weak self] result in
-            if case .success(let similarResponse) = result {
+            switch result {
+            case .success(let similarResponse):
                 DispatchQueue.main.async {
                     self?.similarMovies = similarResponse.results
+                    AppLogger.general.info("[DETAIL] Similar movies loaded: \(similarResponse.results.count) movies")
                 }
+            case .failure(let error):
+                AppLogger.general.warning("[DETAIL] Failed to load similar movies (non-critical): \(error.localizedDescription, privacy: .public)")
+                // Screen continues to work without similar movies
             }
         }
     }
@@ -300,6 +336,17 @@ class MovieDetailViewModel: ObservableObject {
 }
 
 // MARK: - Supporting Views
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    var applicationActivities: [UIActivity]? = nil
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: applicationActivities)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
 
 struct AsyncImageView: View {
     let url: URL?

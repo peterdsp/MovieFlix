@@ -23,6 +23,10 @@
 		027 /* ReviewResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 028 /* ReviewResponse.swift */; };
 		029 /* SimilarMoviesResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030 /* SimilarMoviesResponse.swift */; };
 		031 /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = 032 /* Config.swift */; };
+		033 /* AppLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 034 /* AppLogger.swift */; };
+		035 /* PerformanceMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 036 /* PerformanceMonitor.swift */; };
+		037 /* DateFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 038 /* DateFormatters.swift */; };
+		039 /* UIImage+Decoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 040 /* UIImage+Decoding.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +48,10 @@
 		028 /* ReviewResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewResponse.swift; sourceTree = "<group>"; };
 		030 /* SimilarMoviesResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimilarMoviesResponse.swift; sourceTree = "<group>"; };
 		032 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		034 /* AppLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLogger.swift; sourceTree = "<group>"; };
+		036 /* PerformanceMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceMonitor.swift; sourceTree = "<group>"; };
+		038 /* DateFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatters.swift; sourceTree = "<group>"; };
+		040 /* UIImage+Decoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIImage+Decoding.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +141,10 @@
 			isa = PBXGroup;
 			children = (
 				024 /* ImageLoader.swift */,
+				034 /* AppLogger.swift */,
+				036 /* PerformanceMonitor.swift */,
+				038 /* DateFormatters.swift */,
+				040 /* UIImage+Decoding.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -221,6 +233,10 @@
 				027 /* ReviewResponse.swift in Sources */,
 				029 /* SimilarMoviesResponse.swift in Sources */,
 				031 /* Config.swift in Sources */,
+				033 /* AppLogger.swift in Sources */,
+				035 /* PerformanceMonitor.swift in Sources */,
+				037 /* DateFormatters.swift in Sources */,
+				039 /* UIImage+Decoding.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
